@@ -2,6 +2,7 @@ import os
 import numpy as np
 import cv2
 import argparse
+import pdb
 
 parser = argparse.ArgumentParser('create image pairs')
 parser.add_argument('--fold_A', dest='fold_A', help='input directory for image A', type=str, default='../dataset/50kshoes_edges')
@@ -44,5 +45,33 @@ for sp in splits:
             path_AB = os.path.join(img_fold_AB, name_AB)
             im_A = cv2.imread(path_A, 1) # python2: cv2.CV_LOAD_IMAGE_COLOR; python3: cv2.IMREAD_COLOR
             im_B = cv2.imread(path_B, 1) # python2: cv2.CV_LOAD_IMAGE_COLOR; python3: cv2.IMREAD_COLOR
-            im_AB = np.concatenate([im_A, im_B], 1)
+
+            #resize to match size
+            #pdb.set_trace()
+
+            #1. find the smaller image.
+            # if(im_A.shape[0] > im_B.shape[0] and im_A.shape[1] > im_B.shape[1]):
+            #     smaller_img = im_B
+            #     dim = (smaller_img.shape[0], smaller_img.shape[1])
+                
+            # elif ((im_A.shape[0] < im_B.shape[0] and im_A.shape[1] < im_B.shape[1]) || (im_A.shape[0] == im_B.shape[0] and im_A.shape[1] == im_B.shape[1])):
+            #     smaller_img = im_A
+            #     dim = (smaller_img.shape[0], smaller_img.shape[1])
+
+            # elif (im_A.shape[0] > im_B.shape[0]):
+            #     smaller_img = im_B
+            #     dim = (smaller_img.shape[0], smaller_img.shape[1])
+            # else:
+            #     smaller_img = im_A
+            #     dim = (smaller_img.shape[0], smaller_img.shape[1])
+            dim1 = min(im_A.shape[0], im_B.shape[0])
+            dim2 = min(im_A.shape[1], im_B.shape[1])
+
+            dim = (dim1, dim2)
+
+            #2. resize the bigger to the smaller image.
+            resized_A = cv2.resize(im_A, dim, interpolation = cv2.INTER_AREA)
+            resized_B = cv2.resize(im_B, dim, interpolation = cv2.INTER_AREA)
+
+            im_AB = np.concatenate([resized_A, resized_B], 1)
             cv2.imwrite(path_AB, im_AB)
