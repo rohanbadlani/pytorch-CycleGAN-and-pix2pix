@@ -9,8 +9,8 @@ def normalize_batch(batch):
     # normalize using imagenet mean and std. Implementation adapted from https://github.com/pytorch/examples/blob/master/fast_neural_style/neural_style/utils.py
     # pdb.set_trace()
     
-    mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
-    std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
+    mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1).cuda()
+    std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1).cuda()
 
     p2_norm = (batch + 1)/2 # [-1, 1] => [0, 1]
     

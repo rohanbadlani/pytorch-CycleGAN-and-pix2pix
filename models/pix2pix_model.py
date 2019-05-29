@@ -86,8 +86,8 @@ class Pix2PixModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
 
-        self.vggnet = models.vgg16(pretrained=True)
-        self.vgg_features = VGG19BottomImageFeatures(self.vggnet)
+        self.vggnet = models.vgg16(pretrained=True).cuda()
+        self.vgg_features = VGG19BottomImageFeatures(self.vggnet).cuda()
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
