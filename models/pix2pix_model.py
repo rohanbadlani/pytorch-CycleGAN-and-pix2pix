@@ -2,6 +2,20 @@ import torch
 from .base_model import BaseModel
 from . import networks
 
+#import pretrained vgg net
+import torchvision.models as models
+from .CX_distance import symetric_CX_loss, CX_loss
+import pdb
+import torch.nn as nn
+
+class VGG19BottomImageFeatures(nn.Module):
+    def __init__(self, original_model):
+        super(VGG19BottomImageFeatures, self).__init__()
+        self.features = nn.Sequential(*list(original_model.children())[:-2])
+        
+    def forward(self, x):
+        x = self.features(x)
+        return x
 
 class Pix2PixModel(BaseModel):
     """ This class implements the pix2pix model, for learning a mapping from input images to output images given paired data.
@@ -64,11 +78,15 @@ class Pix2PixModel(BaseModel):
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)
             self.criterionL1 = torch.nn.L1Loss()
+
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(self.netG.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+
+        self.vggnet = models.vgg16(pretrained=True)
+        self.vgg_features = VGG19BottomImageFeatures(self.vggnet)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -109,8 +127,17 @@ class Pix2PixModel(BaseModel):
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
         # Second, G(A) = B
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+        # Third, is the contextual loss.
+        real_vgg_features = self.vgg_features(self.real_B)
+        fake_vgg_features = self.vgg_features(self.fake_B)
+        #pdb.set_trace()
+        self.loss_G_Contextual = symetric_CX_loss(real_vgg_features, fake_vgg_features)
+
         # combine loss and calculate gradients
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1
+        #self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_Contextual
+
+        # combine only GAN loss and the contextual loss in place of L1 Loss.
+        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_Contextual
         self.loss_G.backward()
 
     def optimize_parameters(self):
