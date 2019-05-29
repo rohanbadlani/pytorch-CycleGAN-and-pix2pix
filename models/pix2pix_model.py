@@ -137,7 +137,7 @@ class Pix2PixModel(BaseModel):
         #self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_Contextual
 
         # combine only GAN loss and the contextual loss in place of L1 Loss.
-        self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_Contextual
+        self.loss_G = self.loss_G_GAN + self.loss_G_Contextual
         self.loss_G.backward()
 
     def optimize_parameters(self):
