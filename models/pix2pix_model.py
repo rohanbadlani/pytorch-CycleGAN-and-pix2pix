@@ -7,6 +7,7 @@ import torchvision.models as models
 from .CX_distance import symetric_CX_loss, CX_loss
 import pdb
 import torch.nn as nn
+from .perceptual_loss_utils import normalize_batch, perceptual_loss
 
 class VGG19BottomImageFeatures(nn.Module):
     def __init__(self, original_model):
@@ -85,8 +86,8 @@ class Pix2PixModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
 
-        self.vggnet = models.vgg16(pretrained=True).cuda()
-        self.vgg_features = VGG19BottomImageFeatures(self.vggnet).cuda()
+        self.vggnet = models.vgg16(pretrained=True)
+        self.vgg_features = VGG19BottomImageFeatures(self.vggnet)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -133,11 +134,32 @@ class Pix2PixModel(BaseModel):
         #pdb.set_trace()
         self.loss_G_Contextual = symetric_CX_loss(real_vgg_features, fake_vgg_features)
 
+        #Fourth is the Perceptual loss as the L1 distance between real vs fake features
+
+        # 1. Normalize input images using ImageNet features
+        real_normalized_image = normalize_batch(self.real_B)
+        fake_normalized_image = normalize_batch(self.fake_B)
+
+        #real_normalized_image = self.real_B
+        #fake_normalized_image = self.fake_B
+
+        # 2. Forward pass through VGG
+        pl_real_vgg_features = self.vgg_features(real_normalized_image)
+        pl_fake_vgg_features = self.vgg_features(fake_normalized_image)
+
+        # 3. Use L1/L2 distance between VGG features. Currently L1 norm. Implementation inspired from https://github.com/tengteng95/Pose-Transfer/blob/master/losses/L1_plus_perceptualLoss.py
+        self.perceptual_loss = perceptual_loss(pl_real_vgg_features, pl_fake_vgg_features, 1)
+
         # combine loss and calculate gradients
         #self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_Contextual
 
         # combine only GAN loss and the contextual loss in place of L1 Loss.
-        self.loss_G = self.loss_G_GAN + self.loss_G_Contextual
+        #self.loss_G = self.loss_G_GAN + self.loss_G_Contextual
+
+        #pdb.set_trace()
+        # combine only GAN loss and the perceptual loss in place of L1 Loss.
+        self.loss_G = self.loss_G_GAN + self.perceptual_loss
+
         self.loss_G.backward()
 
     def optimize_parameters(self):
