@@ -150,8 +150,9 @@ class Pix2PixModel(BaseModel):
         
         self.loss_G = self.loss_G_GAN
         
+        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+        
         if "L1" in self.opt.loss_type:
-            self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
             self.loss_G += self.loss_G_L1
         
         if "contextual" in self.opt.loss_type:
