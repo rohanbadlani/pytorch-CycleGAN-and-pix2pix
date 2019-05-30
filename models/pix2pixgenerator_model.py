@@ -15,7 +15,7 @@ class Vgg16Features(torch.nn.Module):
     #use for perceptual
     def __init__(self, requires_grad=False):
         super(Vgg16Features, self).__init__()
-        vgg_pretrained_features = models.vgg16(pretrained=True).features
+        vgg_pretrained_features = models.vgg16(pretrained=True).cuda().features
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()
@@ -52,7 +52,7 @@ class Vgg19Features(torch.nn.Module):
     #use for contextual
     def __init__(self, requires_grad=False):
         super(Vgg19Features, self).__init__()
-        vgg_pretrained_features = models.vgg19(pretrained=True).features
+        vgg_pretrained_features = models.vgg19(pretrained=True).cuda().features
         self.conv1_2 = torch.nn.Sequential()
         self.conv2_2 = torch.nn.Sequential()
         self.conv3_2 = torch.nn.Sequential()
