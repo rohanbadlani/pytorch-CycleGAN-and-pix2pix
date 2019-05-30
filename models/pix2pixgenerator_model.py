@@ -12,6 +12,7 @@ from torchsummary import summary
 from collections import namedtuple
 
 class Vgg16Features(torch.nn.Module):
+    #use for perceptual
     def __init__(self, requires_grad=False):
         super(Vgg16Features, self).__init__()
         vgg_pretrained_features = models.vgg16(pretrained=True).features
@@ -29,7 +30,7 @@ class Vgg16Features(torch.nn.Module):
             self.slice4.add_module(str(x), vgg_pretrained_features[x])
 
         pdb.set_trace()
-        
+
         if not requires_grad:
             for param in self.parameters():
                 param.requires_grad = False
@@ -45,6 +46,65 @@ class Vgg16Features(torch.nn.Module):
         h_relu4_3 = h
         vgg_outputs = namedtuple("VggOutputs", ['relu1_2', 'relu2_2', 'relu3_3', 'relu4_3'])
         out = vgg_outputs(h_relu1_2, h_relu2_2, h_relu3_3, h_relu4_3)
+        return out
+
+class Vgg19Features(torch.nn.Module):
+    #use for contextual
+    def __init__(self, requires_grad=False):
+        super(Vgg19Features, self).__init__()
+        vgg_pretrained_features = models.vgg19(pretrained=True).features
+        self.conv1_2 = torch.nn.Sequential()
+        self.conv2_2 = torch.nn.Sequential()
+        self.conv3_2 = torch.nn.Sequential()
+        self.conv3_4 = torch.nn.Sequential()
+        self.conv4_2 = torch.nn.Sequential()
+        self.conv4_4 = torch.nn.Sequential()
+        self.conv5_2 = torch.nn.Sequential()
+        self.conv5_4 = torch.nn.Sequential()
+        
+        for x in range(4):
+            self.conv1_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(4, 9):
+            self.conv2_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(9, 14):
+            self.conv3_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(14, 18):
+            self.conv3_4.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(18, 23):
+            self.conv4_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(23, 27):
+            self.conv4_4.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(27, 32):
+            self.conv5_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(32, 36):
+            self.conv5_4.add_module(str(x), vgg_pretrained_features[x])
+
+        pdb.set_trace()
+
+        if not requires_grad:
+            for param in self.parameters():
+                param.requires_grad = False
+
+    def forward(self, X):
+        h = self.conv1_2(X)
+        h_conv1_2 = h
+        h = self.conv2_2(h)
+        h_conv2_2 = h
+        h = self.conv3_2(h)
+        h_conv3_2 = h
+        h = self.conv3_4(h)
+        h_conv3_4 = h
+        h = self.conv4_2(h)
+        h_conv4_2 = h
+        h = self.conv4_4(h)
+        h_conv4_4 = h
+        h = self.conv5_2(h)
+        h_conv5_2 = h
+        h = self.conv5_4(h)
+        h_conv5_4 = h
+        
+        vgg_outputs = namedtuple("VggOutputs", ['conv1_2', 'conv2_2', 'conv3_2', 'conv3_4', 'conv4_2', 'conv4_4', 'conv5_2', 'conv5_4'])
+        out = vgg_outputs(h_conv1_2, h_conv2_2, h_conv3_2, h_conv3_4, h_conv4_2, h_conv4_4, h_conv5_2, h_conv5_4)
         return out
 
 class Pix2PixGeneratorModel(BaseModel):
@@ -121,8 +181,8 @@ class Pix2PixGeneratorModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
             # self.optimizers.append(self.optimizer_D)
 
-        # Dont need to finetune Vgg16 thus requires_grad=False
-        self.vgg_features = Vgg16Features(requires_grad=False)
+        # Dont need to finetune Vgg19 thus requires_grad=False
+        self.vgg_features = Vgg19Features(requires_grad=False)
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -167,10 +227,17 @@ class Pix2PixGeneratorModel(BaseModel):
         self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
         
         # Third, is the contextual loss.
-        real_vgg_features = self.vgg_features(self.real_B).relu3_3
-        fake_vgg_features = self.vgg_features(self.fake_B).relu3_3
+        real_vgg_features = self.vgg_features(self.real_B)
+        fake_vgg_features = self.vgg_features(self.fake_B)
+
+        real_img_vgg_features = self.vgg_features(self.real_A)
         #pdb.set_trace()
-        self.loss_G_Contextual = symetric_CX_loss(real_vgg_features, fake_vgg_features) * self.opt.lambda_L1
+        contexual_loss_layers = ['conv3_2', 'conv4_2']
+
+        self.loss_G_Contextual = 0.0
+
+        for layer in contexual_loss_layers:
+            self.loss_G_Contextual += symetric_CX_loss(getattr(real_img_vgg_features,layer), getattr(fake_vgg_features,layer)) * self.opt.lambda_L1
 
         # Not in use now. Fourth is the Perceptual loss as the L1 distance between real vs fake features
 
