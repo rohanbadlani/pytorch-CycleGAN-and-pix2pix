@@ -230,14 +230,13 @@ class Pix2PixGeneratorModel(BaseModel):
         real_vgg_features = self.vgg_features(self.real_B)
         fake_vgg_features = self.vgg_features(self.fake_B)
 
-        real_img_vgg_features = self.vgg_features(self.real_A)
         #pdb.set_trace()
         contexual_loss_layers = ['conv3_2', 'conv4_2']
 
         self.loss_G_Contextual = 0.0
 
         for layer in contexual_loss_layers:
-            self.loss_G_Contextual += symetric_CX_loss(getattr(real_img_vgg_features,layer), getattr(fake_vgg_features,layer)) * self.opt.lambda_L1
+            self.loss_G_Contextual += symetric_CX_loss(getattr(real_vgg_features,layer), getattr(fake_vgg_features,layer)) * self.opt.lambda_L1
 
         # Not in use now. Fourth is the Perceptual loss as the L1 distance between real vs fake features
 
