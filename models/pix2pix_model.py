@@ -8,14 +8,17 @@ from .CX_distance import symetric_CX_loss, CX_loss
 import pdb
 import torch.nn as nn
 from .perceptual_loss_utils import normalize_batch, perceptual_loss
+from torchsummary import summary
 
 class VGG19BottomImageFeatures(nn.Module):
-    def __init__(self, original_model):
+    def __init__(self, original_model, vgg19_layerdict):
         super(VGG19BottomImageFeatures, self).__init__()
+       
         self.features = nn.Sequential(*list(original_model.children())[:-2])
         
     def forward(self, x):
-        x = self.features(x)
+        #x = self.features(x)
+        x = self.features[0][:22](x)
         return x
 
 class Pix2PixModel(BaseModel):
@@ -85,9 +88,27 @@ class Pix2PixModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
+            
+        self.vgg19_layerdict = {
+        0:	"conv1_1",
+        2:	"conv1_2",
+        5:	"conv2_1",
+        7:	"conv2_2",
+        10:	"conv3_1",
+        12:	"conv3_2",
+        14:	"conv3_3",
+        16:	"conv3_4",
+        19:	"conv4_1",
+        21:	"conv4_2",
+        23:	"conv4_3",
+        25:	"conv4_4",
+        28:	"conv5_1",
+        30:	"conv5_2",
+        32:	"conv5_3",
+        34:	"conv5_4"}
 
-        self.vggnet = models.vgg16(pretrained=True).cuda()
-        self.vgg_features = VGG19BottomImageFeatures(self.vggnet).cuda()
+        self.vggnet = models.vgg19(pretrained=True).cuda()
+        self.vgg_features = VGG19BottomImageFeatures(self.vggnet, self.vgg19_layerdict).cuda()
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
