@@ -9,17 +9,103 @@ import pdb
 import torch.nn as nn
 from .perceptual_loss_utils import normalize_batch, perceptual_loss
 from torchsummary import summary
+from collections import namedtuple
 
-class VGG19BottomImageFeatures(nn.Module):
-    def __init__(self, original_model, vgg19_layerdict):
-        super(VGG19BottomImageFeatures, self).__init__()
-       
-        self.features = nn.Sequential(*list(original_model.children())[:-2])
+class Vgg16Features(torch.nn.Module):
+    #use for perceptual
+    def __init__(self, requires_grad=False):
+        super(Vgg16Features, self).__init__()
+        vgg_pretrained_features = models.vgg16(pretrained=True).cuda().features
+        self.slice1 = torch.nn.Sequential()
+        self.slice2 = torch.nn.Sequential()
+        self.slice3 = torch.nn.Sequential()
+        self.slice4 = torch.nn.Sequential()
+        for x in range(4):
+            self.slice1.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(4, 9):
+            self.slice2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(9, 16):
+            self.slice3.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(16, 23):
+            self.slice4.add_module(str(x), vgg_pretrained_features[x])
+
+        #pdb.set_trace()
+
+        if not requires_grad:
+            for param in self.parameters():
+                param.requires_grad = False
+
+    def forward(self, X):
+        h = self.slice1(X)
+        h_relu1_2 = h
+        h = self.slice2(h)
+        h_relu2_2 = h
+        h = self.slice3(h)
+        h_relu3_3 = h
+        h = self.slice4(h)
+        h_relu4_3 = h
+        vgg_outputs = namedtuple("VggOutputs", ['relu1_2', 'relu2_2', 'relu3_3', 'relu4_3'])
+        out = vgg_outputs(h_relu1_2, h_relu2_2, h_relu3_3, h_relu4_3)
+        return out
+
+class Vgg19Features(torch.nn.Module):
+    #use for contextual
+    def __init__(self, requires_grad=False):
+        super(Vgg19Features, self).__init__()
+        vgg_pretrained_features = models.vgg19(pretrained=True).cuda().features
+        self.conv1_2 = torch.nn.Sequential()
+        self.conv2_2 = torch.nn.Sequential()
+        self.conv3_2 = torch.nn.Sequential()
+        self.conv3_4 = torch.nn.Sequential()
+        self.conv4_2 = torch.nn.Sequential()
+        self.conv4_4 = torch.nn.Sequential()
+        self.conv5_2 = torch.nn.Sequential()
+        self.conv5_4 = torch.nn.Sequential()
         
-    def forward(self, x):
-        #x = self.features(x)
-        x = self.features[0][:23](x)
-        return x
+        for x in range(4):
+            self.conv1_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(4, 9):
+            self.conv2_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(9, 14):
+            self.conv3_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(14, 18):
+            self.conv3_4.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(18, 23):
+            self.conv4_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(23, 27):
+            self.conv4_4.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(27, 32):
+            self.conv5_2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(32, 36):
+            self.conv5_4.add_module(str(x), vgg_pretrained_features[x])
+
+        #pdb.set_trace()
+
+        if not requires_grad:
+            for param in self.parameters():
+                param.requires_grad = False
+
+    def forward(self, X):
+        h = self.conv1_2(X)
+        h_conv1_2 = h
+        h = self.conv2_2(h)
+        h_conv2_2 = h
+        h = self.conv3_2(h)
+        h_conv3_2 = h
+        h = self.conv3_4(h)
+        h_conv3_4 = h
+        h = self.conv4_2(h)
+        h_conv4_2 = h
+        h = self.conv4_4(h)
+        h_conv4_4 = h
+        h = self.conv5_2(h)
+        h_conv5_2 = h
+        h = self.conv5_4(h)
+        h_conv5_4 = h
+        
+        vgg_outputs = namedtuple("VggOutputs", ['conv1_2', 'conv2_2', 'conv3_2', 'conv3_4', 'conv4_2', 'conv4_4', 'conv5_2', 'conv5_4'])
+        out = vgg_outputs(h_conv1_2, h_conv2_2, h_conv3_2, h_conv3_4, h_conv4_2, h_conv4_4, h_conv5_2, h_conv5_4)
+        return out
 
 class Pix2PixModel(BaseModel):
     """ This class implements the pix2pix model, for learning a mapping from input images to output images given paired data.
@@ -89,26 +175,13 @@ class Pix2PixModel(BaseModel):
             self.optimizers.append(self.optimizer_G)
             self.optimizers.append(self.optimizer_D)
             
-        self.vgg19_layerdict = {
-        0:	"conv1_1",
-        2:	"conv1_2",
-        5:	"conv2_1",
-        7:	"conv2_2",
-        10:	"conv3_1",
-        12:	"conv3_2",
-        14:	"conv3_3",
-        16:	"conv3_4",
-        19:	"conv4_1",
-        21:	"conv4_2",
-        23:	"conv4_3",
-        25:	"conv4_4",
-        28:	"conv5_1",
-        30:	"conv5_2",
-        32:	"conv5_3",
-        34:	"conv5_4"}
+        # For perceptual Loss.
+        self.vgg16_features = Vgg16Features(requires_grad=False)
+        self.perceptual_loss_layers = ['relu3_3']
 
-        self.vggnet = models.vgg19(pretrained=True).cuda()
-        self.vgg_features = VGG19BottomImageFeatures(self.vggnet, self.vgg19_layerdict).cuda()
+        # For contextual Loss.
+        self.vgg19_features = Vgg19Features(requires_grad=False)
+        self.contextual_loss_layers = ['conv3_2', 'conv4_2']
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -156,16 +229,25 @@ class Pix2PixModel(BaseModel):
             self.loss_G += self.loss_G_L1
         
         if "contextual" in self.opt.loss_type:
-            real_vgg_features = self.vgg_features(self.real_B)
-            fake_vgg_features = self.vgg_features(self.fake_B)
-            self.loss_G_Contextual = symetric_CX_loss(fake_vgg_features, real_vgg_features)
-            self.loss_G += self.loss_G_Contextual.squeeze()
+            real_vgg_features = self.vgg19_features(self.real_B)
+            fake_vgg_features = self.vgg19_features(self.fake_B)
+
+            self.loss_G_Contextual = 0.0
+
+            for layer in self.contextual_loss_layers:
+                self.loss_G_Contextual += symetric_CX_loss(getattr(real_vgg_features,layer), getattr(fake_vgg_features,layer))
+
+            self.loss_G += self.loss_G_Contextual.squeeze() * self.opt.lambda_L1
             
             if "unpaired" in self.opt.loss_type:
-                inputimg_vgg_features = self.vgg_features(self.real_A)
-                self.loss_G_Contextual_source = symetric_CX_loss(fake_vgg_features, inputimg_vgg_features)
-                self.loss_G += self.loss_G_Contextual_source.squeeze()
-        
+                inputimg_vgg_features = self.vgg19_features(self.real_A)
+
+                self.loss_G_Contextual_source = 0.0
+
+                for layer in self.contextual_loss_layers:
+                    self.loss_G_Contextual_source += symetric_CX_loss(getattr(inputimg_vgg_features,layer), getattr(fake_vgg_features,layer))
+
+                self.loss_G += self.loss_G_Contextual_source.squeeze() * self.opt.lambda_L1
 
         #Fourth is the Perceptual loss as the L1 distance between real vs fake features
         # 1. Normalize input images using ImageNet features
@@ -174,18 +256,27 @@ class Pix2PixModel(BaseModel):
             fake_normalized_image = normalize_batch(self.fake_B)
 
             # 2. Forward pass through VGG
-            pl_real_vgg_features = self.vgg_features(real_normalized_image)
-            pl_fake_vgg_features = self.vgg_features(fake_normalized_image)
+            pl_real_vgg_features = self.vgg16_features(real_normalized_image)
+            pl_fake_vgg_features = self.vgg16_features(fake_normalized_image)
 
             # 3. Use L1/L2 distance between VGG features. Currently L1 norm. Implementation inspired from https://github.com/tengteng95/Pose-Transfer/blob/master/losses/L1_plus_perceptualLoss.py
-            self.perceptual_loss = perceptual_loss(pl_real_vgg_features, pl_fake_vgg_features, 1)
-            self.loss_G += self.perceptual_loss.squeeze()
+            self.perceptual_loss = 0.0
+
+            for layer in self.perceptual_loss_layers:
+                self.perceptual_loss += perceptual_loss(getattr(pl_real_vgg_features,layer), getattr(pl_fake_vgg_features,layer), 1)
+
+            self.loss_G += self.perceptual_loss.squeeze() * self.opt.lambda_L1
             
             if "unpaired" in self.opt.loss_type:
                 input_normalized_image = normalize_batch(self.real_A)
-                pl_input_vgg_features = self.vgg_features(input_normalized_image)
-                self.perceptual_loss_source = perceptual_loss(pl_input_vgg_features, pl_fake_vgg_features, 1)
-                self.loss_G += self.perceptual_loss_source.squeeze()
+                pl_input_vgg_features = self.vgg16_features(input_normalized_image)
+
+                self.perceptual_loss_source = 0.0
+
+                for layer in self.perceptual_loss_layers:
+                    self.perceptual_loss_source += perceptual_loss(getattr(pl_input_vgg_features,layer), getattr(pl_fake_vgg_features,layer), 1)
+
+                self.loss_G += self.perceptual_loss_source.squeeze() * self.opt.lambda_L1
 
         self.loss_G.backward()
 
