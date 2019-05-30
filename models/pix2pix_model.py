@@ -152,34 +152,38 @@ class Pix2PixModel(BaseModel):
         # Third, is the contextual loss.
         real_vgg_features = self.vgg_features(self.real_B)
         fake_vgg_features = self.vgg_features(self.fake_B)
+
+        inputimg_vgg_features = self.vgg_features(self.real_A)
         #pdb.set_trace()
-        self.loss_G_Contextual = symetric_CX_loss(real_vgg_features, fake_vgg_features)
+        self.loss_G_Contextual = symetric_CX_loss(fake_vgg_features, real_vgg_features)
+        self.loss_G_Contextual_source = symetric_CX_loss(fake_vgg_features, inputimg_vgg_features)
 
         #Fourth is the Perceptual loss as the L1 distance between real vs fake features
-
+        """
         # 1. Normalize input images using ImageNet features
         real_normalized_image = normalize_batch(self.real_B)
         fake_normalized_image = normalize_batch(self.fake_B)
-
-        #real_normalized_image = self.real_B
-        #fake_normalized_image = self.fake_B
+        input_normalized_image = normalize_batch(self.real_A)
 
         # 2. Forward pass through VGG
         pl_real_vgg_features = self.vgg_features(real_normalized_image)
         pl_fake_vgg_features = self.vgg_features(fake_normalized_image)
+        pl_input_vgg_features = self.vgg_features(input_normalized_image)
 
         # 3. Use L1/L2 distance between VGG features. Currently L1 norm. Implementation inspired from https://github.com/tengteng95/Pose-Transfer/blob/master/losses/L1_plus_perceptualLoss.py
         self.perceptual_loss = perceptual_loss(pl_real_vgg_features, pl_fake_vgg_features, 1)
+        self.perceptual_loss_source = perceptual_loss(pl_input_vgg_features, pl_fake_vgg_features, 1)
+        """
 
         # combine loss and calculate gradients
         #self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_Contextual
 
         # combine only GAN loss and the contextual loss in place of L1 Loss.
-        #self.loss_G = self.loss_G_GAN + self.loss_G_Contextual
+        self.loss_G = self.loss_G_GAN + self.loss_G_Contextual + self.loss_G_Contextual_source
 
         #pdb.set_trace()
         # combine only GAN loss and the perceptual loss in place of L1 Loss.
-        self.loss_G = self.loss_G_GAN + self.perceptual_loss
+        #self.loss_G = self.loss_G_GAN + self.perceptual_loss
 
         self.loss_G.backward()
 
