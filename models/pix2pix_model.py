@@ -18,7 +18,7 @@ class VGG19BottomImageFeatures(nn.Module):
         
     def forward(self, x):
         #x = self.features(x)
-        x = self.features[0][:22](x)
+        x = self.features[0][:23](x)
         return x
 
 class Pix2PixModel(BaseModel):
@@ -158,13 +158,12 @@ class Pix2PixModel(BaseModel):
             real_vgg_features = self.vgg_features(self.real_B)
             fake_vgg_features = self.vgg_features(self.fake_B)
             self.loss_G_Contextual = symetric_CX_loss(fake_vgg_features, real_vgg_features)
-            
-            self.loss_G += self.loss_G_Contextual
+            self.loss_G += self.loss_G_Contextual.squeeze()
             
             if "unpaired" in self.opt.loss_type:
                 inputimg_vgg_features = self.vgg_features(self.real_A)
                 self.loss_G_Contextual_source = symetric_CX_loss(fake_vgg_features, inputimg_vgg_features)
-                self.loss_G += self.loss_G_Contextual_source
+                self.loss_G += self.loss_G_Contextual_source.squeeze()
         
 
         #Fourth is the Perceptual loss as the L1 distance between real vs fake features
@@ -179,13 +178,13 @@ class Pix2PixModel(BaseModel):
 
             # 3. Use L1/L2 distance between VGG features. Currently L1 norm. Implementation inspired from https://github.com/tengteng95/Pose-Transfer/blob/master/losses/L1_plus_perceptualLoss.py
             self.perceptual_loss = perceptual_loss(pl_real_vgg_features, pl_fake_vgg_features, 1)
-            self.loss_G += self.perceptual_loss
+            self.loss_G += self.perceptual_loss.squeeze()
             
             if "unpaired" in self.opt.loss_type:
                 input_normalized_image = normalize_batch(self.real_A)
                 pl_input_vgg_features = self.vgg_features(input_normalized_image)
                 self.perceptual_loss_source = perceptual_loss(pl_input_vgg_features, pl_fake_vgg_features, 1)
-                self.loss_G += self.perceptual_loss_source
+                self.loss_G += self.perceptual_loss_source.squeeze()
 
         self.loss_G.backward()
 
