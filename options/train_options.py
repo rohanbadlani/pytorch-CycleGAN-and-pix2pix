@@ -35,6 +35,7 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--pool_size', type=int, default=50, help='the size of image buffer that stores previously generated images')
         parser.add_argument('--lr_policy', type=str, default='linear', help='learning rate policy. [linear | step | plateau | cosine]')
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
+        parser.add_argument('--loss_type', type=str, default="L1", help="loss function options [L1 | contextual | perceptual | contextual_unpaired | perceptual_unpaired]. You can combine L1 and contextual by specifying L1 contextual as your loss_type")
 
         self.isTrain = True
         return parser

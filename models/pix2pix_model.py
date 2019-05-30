@@ -147,43 +147,45 @@ class Pix2PixModel(BaseModel):
         fake_AB = torch.cat((self.real_A, self.fake_B), 1)
         pred_fake = self.netD(fake_AB)
         self.loss_G_GAN = self.criterionGAN(pred_fake, True)
-        # Second, G(A) = B
-        self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
-        # Third, is the contextual loss.
-        real_vgg_features = self.vgg_features(self.real_B)
-        fake_vgg_features = self.vgg_features(self.fake_B)
-
-        inputimg_vgg_features = self.vgg_features(self.real_A)
-        #pdb.set_trace()
-        self.loss_G_Contextual = symetric_CX_loss(fake_vgg_features, real_vgg_features)
-        self.loss_G_Contextual_source = symetric_CX_loss(fake_vgg_features, inputimg_vgg_features)
+        
+        self.loss_G = self.loss_G_GAN
+        
+        if "L1" in self.opt.loss_type:
+            self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B) * self.opt.lambda_L1
+            self.loss_G += self.loss_G_L1
+        
+        if "contextual" in self.opt.loss_type:
+            real_vgg_features = self.vgg_features(self.real_B)
+            fake_vgg_features = self.vgg_features(self.fake_B)
+            self.loss_G_Contextual = symetric_CX_loss(fake_vgg_features, real_vgg_features)
+            
+            self.loss_G += self.loss_G_Contextual
+            
+            if "unpaired" in self.opt.loss_type:
+                inputimg_vgg_features = self.vgg_features(self.real_A)
+                self.loss_G_Contextual_source = symetric_CX_loss(fake_vgg_features, inputimg_vgg_features)
+                self.loss_G += self.loss_G_Contextual_source
+        
 
         #Fourth is the Perceptual loss as the L1 distance between real vs fake features
-        """
         # 1. Normalize input images using ImageNet features
-        real_normalized_image = normalize_batch(self.real_B)
-        fake_normalized_image = normalize_batch(self.fake_B)
-        input_normalized_image = normalize_batch(self.real_A)
+        if "perceptual" in self.opt.loss_type:
+            real_normalized_image = normalize_batch(self.real_B)
+            fake_normalized_image = normalize_batch(self.fake_B)
 
-        # 2. Forward pass through VGG
-        pl_real_vgg_features = self.vgg_features(real_normalized_image)
-        pl_fake_vgg_features = self.vgg_features(fake_normalized_image)
-        pl_input_vgg_features = self.vgg_features(input_normalized_image)
+            # 2. Forward pass through VGG
+            pl_real_vgg_features = self.vgg_features(real_normalized_image)
+            pl_fake_vgg_features = self.vgg_features(fake_normalized_image)
 
-        # 3. Use L1/L2 distance between VGG features. Currently L1 norm. Implementation inspired from https://github.com/tengteng95/Pose-Transfer/blob/master/losses/L1_plus_perceptualLoss.py
-        self.perceptual_loss = perceptual_loss(pl_real_vgg_features, pl_fake_vgg_features, 1)
-        self.perceptual_loss_source = perceptual_loss(pl_input_vgg_features, pl_fake_vgg_features, 1)
-        """
-
-        # combine loss and calculate gradients
-        #self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_Contextual
-
-        # combine only GAN loss and the contextual loss in place of L1 Loss.
-        self.loss_G = self.loss_G_GAN + self.loss_G_Contextual + self.loss_G_Contextual_source
-
-        #pdb.set_trace()
-        # combine only GAN loss and the perceptual loss in place of L1 Loss.
-        #self.loss_G = self.loss_G_GAN + self.perceptual_loss
+            # 3. Use L1/L2 distance between VGG features. Currently L1 norm. Implementation inspired from https://github.com/tengteng95/Pose-Transfer/blob/master/losses/L1_plus_perceptualLoss.py
+            self.perceptual_loss = perceptual_loss(pl_real_vgg_features, pl_fake_vgg_features, 1)
+            self.loss_G += self.perceptual_loss
+            
+            if "unpaired" in self.opt.loss_type:
+                input_normalized_image = normalize_batch(self.real_A)
+                pl_input_vgg_features = self.vgg_features(input_normalized_image)
+                self.perceptual_loss_source = perceptual_loss(pl_input_vgg_features, pl_fake_vgg_features, 1)
+                self.loss_G += self.perceptual_loss_source
 
         self.loss_G.backward()
 
