@@ -182,6 +182,7 @@ class Pix2PixModel(BaseModel):
         # For contextual Loss.
         self.vgg19_features = Vgg19Features(requires_grad=False)
         self.contextual_loss_layers = ['conv3_2', 'conv4_2']
+        self.contextual_loss_layers_source = ['conv4_2']
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -238,16 +239,16 @@ class Pix2PixModel(BaseModel):
                 self.loss_G_Contextual += symetric_CX_loss(getattr(real_vgg_features,layer), getattr(fake_vgg_features,layer))
 
             self.loss_G += self.loss_G_Contextual.squeeze() * self.opt.lambda_L1
-            
+
             if "unpaired" in self.opt.loss_type:
                 inputimg_vgg_features = self.vgg19_features(self.real_A)
 
                 self.loss_G_Contextual_source = 0.0
 
-                for layer in self.contextual_loss_layers:
+                for layer in self.contextual_loss_layers_source:
                     self.loss_G_Contextual_source += symetric_CX_loss(getattr(inputimg_vgg_features,layer), getattr(fake_vgg_features,layer))
 
-                self.loss_G += self.loss_G_Contextual_source.squeeze() * self.opt.lambda_L1
+                self.loss_G += self.loss_G_Contextual_source.squeeze() * self.opt.lambda_L1 * len(self.contextual_loss_layers)/len(self.contextual_loss_layers_source)
 
         #Fourth is the Perceptual loss as the L1 distance between real vs fake features
         # 1. Normalize input images using ImageNet features
