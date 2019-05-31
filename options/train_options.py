@@ -37,5 +37,6 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--lr_decay_iters', type=int, default=50, help='multiply by a gamma every lr_decay_iters iterations')
         parser.add_argument('--loss_type', type=str, default="L1", help="loss function options [L1 | contextual | perceptual | contextual_unpaired | perceptual_unpaired]. You can combine L1 and contextual by specifying L1 contextual as your loss_type")
 
+        parser.add_argument('--not_conditional', action='store_true', help='use a vanilla GAN rather than a conditional one')
         self.isTrain = True
         return parser
