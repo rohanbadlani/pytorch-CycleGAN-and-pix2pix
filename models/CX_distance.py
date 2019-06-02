@@ -216,6 +216,8 @@ def CX_loss(T_features, I_features, deformation=False, dis=False):
     # sum_normalize:
     # To:
     cs = cs_flow.cs_NHWC
+    print("CS after normalization:", cs)
+    assert(torch.max(cs) <= 1)
 
     if deformation:
         deforma_sigma = 0.001
@@ -242,6 +244,7 @@ def CX_loss(T_features, I_features, deformation=False, dis=False):
         score = -torch.log(CS)
     # reduce mean over N dim
     # CX_loss = torch.mean(CX_loss)
+    print("CX loss:", score)
     return score
 
 
